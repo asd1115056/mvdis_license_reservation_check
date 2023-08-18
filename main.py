@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 def post2mvdis(url, licenseTypeCode, expectExamDateStr, dmvNoLv1, dmvNo):
     request_headers = {
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 '
-        'Safari/537.36 Edg/115.0.1901.203',
+                      'Safari/537.36 Edg/115.0.1901.203',
         # 'referer': 'https://www.mvdis.gov.tw/m3-emv-trn/exm/locations',
     }
     form_data = {
@@ -76,6 +76,53 @@ def findtable(text):
     return All
 
 
+def chooseExpectExamDate(All, InputDate):
+    DateStr = []
+    DateStr.append('欄位名(佔位用)')
+
+    for i in range(len(All)):
+        # 跳過欄位名
+        if i >= 1:
+            DateTemp = All[i][0]
+            # 替代 年
+            DateTemp = DateTemp.replace('年', ',')
+            # 替代 月
+            DateTemp = DateTemp.replace('月', ',')
+            # 替代 日
+            DateTemp = DateTemp.replace('日', ',')
+            # 拆分字串
+            DateArray = DateTemp.split(',')
+            # 刪除最後一個元素
+            DateArray.pop(3)
+
+            # 將月份補為兩位數
+            if int(DateArray[1]) < 10:
+                DateArray[1] = '0' + DateArray[1]
+            # 將日期補為兩位數
+            if int(DateArray[2]) < 10:
+                DateArray[2] = '0' + DateArray[2]
+
+            Temp = DateArray[0] + DateArray[1] + DateArray[2]
+
+            DateStr.append(Temp)
+
+    # print(DateStr)
+
+    # 與想要日期清單做比對且沒有額滿的話提取數據
+    i = 0
+    length = int(len(All))
+    marklist = []
+    while i < length:
+        for j in range(len(InputDate)):
+            if (str(DateStr[i]) == str(InputDate[j])) & (str(All[i][2]) != '額滿'):
+                marklist.append(All[i][:])
+        i = i + 1
+    # print(i)
+    print("與選擇的日期比對完成")
+    print(marklist)
+    return marklist
+
+
 def tabletoimage(All):
     import os
     from matplotlib.font_manager import fontManager
@@ -101,7 +148,7 @@ def tabletoimage(All):
     plt.savefig('Output.png', bbox_inches='tight')
 
 
-def linenotify(token):
+def linenotify1(token):
     # 要發送的訊息
     dt1 = datetime.utcnow().replace(tzinfo=timezone.utc)
     dt2 = dt1.astimezone(timezone(timedelta(hours=8)))  # 轉換時區 -> 東八區
@@ -120,92 +167,73 @@ def linenotify(token):
                   headers=headers, data=data, files=files)
     print("已送出 Line Notify")
 
+
+def linenotify2(token, marklist):
+    # 要發送的訊息
+    dt1 = datetime.utcnow().replace(tzinfo=timezone.utc)
+    dt2 = dt1.astimezone(timezone(timedelta(hours=8)))  # 轉換時區 -> 東八區
+
+    message = dt2.strftime("%Y-%m-%d %H:%M:%S") + '\n'
+    for i in range(len(marklist)):
+        message = message + str(marklist[i][0]) + ',' + str(marklist[i][1][0:4]) + ',剩餘: ' + str(marklist[i][2])
+        message = message + '\n'
+
+    # HTTP 標頭參數與資料
+    headers = {"Authorization": "Bearer " + token}
+    data = {'message': message}
+
+    # 以 requests 發送 POST 請求
+    requests.post("https://notify-api.line.me/api/notify",
+                  headers=headers, data=data)
+    print("已送出 Line Notify")
+
+
 def now_AD2ROCera():
     dt1 = datetime.utcnow().replace(tzinfo=timezone.utc)
     dt2 = dt1.astimezone(timezone(timedelta(hours=8)))  # 轉換時區 -> 東八區
-    roctra=int(dt2.strftime("%Y%m%d")) - 19110000
-    print(roctra)
+    roctra = int(dt2.strftime("%Y%m%d")) - 19110000
+    # print(roctra)
     return str(roctra)
 
-def job():
+
+def job(num):
     # 監理服務網 - 考照預約報名網址
     url = 'https://www.mvdis.gov.tw/m3-emv-trn/exm/locations#anchor&gsc.tab=0'
     # 報考照類
-    # 普通重型機車 3
-    # 普通輕型機車 (50cc 以下) 5
-    # 普通小型車 A
-    # 職業小型車 B
-    # 普通大貨車 C
-    # 職業大貨車 D
-    # 普通大客車 E
-    # 職業大客車 F
-    # 普通聯結車 G
-    # 職業聯結車 H
     licenseTypeCode = '3'
-
-    # 臺北市區監理所（含金門馬祖） 20
-    # 臺北區監理所（北宜花）40
-    # 新竹區監理所（桃竹苗） 50
-    # 臺中區監理所（中彰投） 60
-    # 嘉義區監理所（雲嘉南） 70
-    # 高雄市區監理所 30
-    # 高雄區監理所（高屏澎東） 80
+    # 監理所在區域
     dmvNoLv1 = '70'
-
-    # 士林監理站(臺北市士林區承德路5段80號) 21
-    # 基隆監理站(基隆市七堵區實踐路296號) 25
-    # 金門監理站(金門縣金湖鎮黃海路六之一號) 26
-    # 臺北區監理所(新北市樹林區中正路248巷7號) 40
-    # 板橋監理站(新北市中和區中山路三段116號) 41
-    # 宜蘭監理站(宜蘭縣五結鄉中正路二段9號) 43
-    # 花蓮監理站(花蓮縣吉安鄉中正路二段152號) 44
-    # 玉里監理分站(花蓮縣玉里鎮中華路427號) 45
-    # 蘆洲監理站(新北市蘆洲區中山二路163號) 46
-    # 新竹區監理所(新竹縣新埔鎮文德路三段58號) 50
-    # 新竹市監理站(新竹市自由路10號) 51
-    # 桃園監理站(桃園市介壽路416號) 52
-    # 中壢監理站(桃園縣中壢市延平路394號) 53
-    # 苗栗監理站(苗栗市福麗里福麗98號) 54
-    # 臺中區監理所(臺中市大肚區瑞井里遊園路一段2號) 60
-    # 臺中市監理站(臺中市北屯路77號) 61
-    # 埔里監理分站(南投縣埔里鎮水頭里水頭路68號) 62
-    # 豐原監理站(臺中市豐原區豐東路120號) 63
-    # 彰化監理站(彰化縣花壇鄉南口村中山路二段457號) 64
-    # 南投監理站(南投縣南投市光明一路301號) 65
-    # 嘉義區監理所(嘉義縣朴子市朴子七路29號) 70
-    # 東勢監理分站(雲林縣東勢鄉新坤村新坤路333號) 71
-    # 雲林監理站(雲林縣斗六市雲林路二段411號) 72
-    # 新營監理站(臺南市新營區大同路55號) 73
-    # 臺南監理站(臺南市崇德路1號) 74
-    # 麻豆監理站(臺南市麻豆區北勢里新生北路551號) 75
-    # 嘉義市監理站(嘉義市東區保建街89號) 76
-    # 高雄市區監理所(高雄市楠梓區德民路71號) 30
-    # 苓雅監理站(高雄市苓雅區安康路22號) 31
-    # 旗山監理站(高雄市旗山區旗文路123-1號) 33
-    # 高雄區監理所(高雄市鳳山區武營路361號) 80
-    # 臺東監理站(臺東市正氣北路441號) 81
-    # 屏東監理站(屏東市忠孝路222號) 82
-    # 恆春監理分站(屏東縣恒春鎮草埔路11號) 83
-    # 澎湖監理站(澎湖縣馬公市光華里121號) 84
+    # 監理所詳細地址
     dmvNo = '76',
-
     # 預期考試日期，預設填今日
     expectExamDateStr = now_AD2ROCera()
+
+    # 選擇的時段
+    ChooseDate = [1120829,1120911,1120912]
 
     # LINE Notify 權杖
     # 參考 https://tools.wingzero.tw/article/sn/1224
     token = 'your token'
 
-    text = post2mvdis(url, licenseTypeCode, expectExamDateStr, dmvNoLv1, dmvNo)
-
-    # For debug
-    # savefile(text)
-    # text = loadfile()
-
-    All = findtable(text)
-    tabletoimage(All)
-    linenotify(token)
-
+    # num=1時，發送包含所有時段的表格
+    # num=2時，僅當選擇的時段不是額滿才發送訊息
+    if num == 1:
+        text = post2mvdis(url, licenseTypeCode, expectExamDateStr, dmvNoLv1, dmvNo)
+        # savefile(text)
+        # text = loadfile()
+        All = findtable(text)
+        tabletoimage(All)
+        linenotify1(token)
+    elif num == 2:
+        text = post2mvdis(url, licenseTypeCode, expectExamDateStr, dmvNoLv1, dmvNo)
+        # savefile(text)
+        # text = loadfile()
+        All = findtable(text)
+        marklist = chooseExpectExamDate(All, ChooseDate)
+        if len(marklist) != 0:
+            linenotify2(token, marklist)
+    else:
+        print("輸入正確數字")
 
 if __name__ == '__main__':
     # 單位秒
@@ -215,7 +243,8 @@ if __name__ == '__main__':
         dt1 = datetime.utcnow().replace(tzinfo=timezone.utc)
         dt2 = dt1.astimezone(timezone(timedelta(hours=8)))  # 轉換時區 -> 東八區
         print(dt2.strftime("%Y-%m-%d %H:%M:%S"))
-        job()
+        # num=1時，發送包含所有時段的表格
+        # num=2時，僅當選擇的時段不是額滿才發送訊息
+        job(1)
         print("下一次查詢在" + str(delaytime) + '秒以後')
         time.sleep(delaytime)
-
