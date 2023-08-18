@@ -1,5 +1,7 @@
 import requests
+import time
 from bs4 import BeautifulSoup
+from datetime import datetime, timezone, timedelta
 
 
 def post2mvdis(url, licenseTypeCode, expectExamDateStr, dmvNoLv1, dmvNo):
@@ -100,7 +102,6 @@ def tabletoimage(All):
 
 
 def linenotify(token):
-    from datetime import datetime, timezone, timedelta
     # 要發送的訊息
     dt1 = datetime.utcnow().replace(tzinfo=timezone.utc)
     dt2 = dt1.astimezone(timezone(timedelta(hours=8)))  # 轉換時區 -> 東八區
@@ -120,7 +121,6 @@ def linenotify(token):
     print("已送出 Line Notify")
 
 def now_AD2ROCera():
-    from datetime import datetime, timezone, timedelta
     dt1 = datetime.utcnow().replace(tzinfo=timezone.utc)
     dt2 = dt1.astimezone(timezone(timedelta(hours=8)))  # 轉換時區 -> 東八區
     roctra=int(dt2.strftime("%Y%m%d")) - 19110000
@@ -194,11 +194,12 @@ def job():
 
     # LINE Notify 權杖
     # 參考 https://tools.wingzero.tw/article/sn/1224
-    token = 'Oz7uWVCH9wScnC0JFCWjkQKW1jnpG0GFwQs9R1mkb2m'
+    token = 'your token'
 
     text = post2mvdis(url, licenseTypeCode, expectExamDateStr, dmvNoLv1, dmvNo)
 
-    savefile(text)
+    # For debug
+    # savefile(text)
     # text = loadfile()
 
     All = findtable(text)
@@ -207,9 +208,14 @@ def job():
 
 
 if __name__ == '__main__':
+    # 單位秒
+    delaytime = 600
 
-    job()
-    # while True:
-    #     job()
-    #     print("sleep")
-    #     time.sleep(300)
+    while True:
+        dt1 = datetime.utcnow().replace(tzinfo=timezone.utc)
+        dt2 = dt1.astimezone(timezone(timedelta(hours=8)))  # 轉換時區 -> 東八區
+        print(dt2.strftime("%Y-%m-%d %H:%M:%S"))
+        job()
+        print("下一次查詢在" + str(delaytime) + '秒以後')
+        time.sleep(delaytime)
+
